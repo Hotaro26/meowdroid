@@ -878,4 +878,20 @@
     <string name="focus_mode_suspend_desc">Freezes distracting apps OS-wide during session</string>
     <string name="confirm_end_session">End Focus Session</string>
     <string name="confirm_end_session_msg">Are you sure you want to end your focus session early?</string>
+
+    <!-- Calendar Time Blocker Strings -->
+    <string name="calendar_view">Calendar</string>
+    <string name="timeline_today">Today</string>
+    <string name="block_time">Block Time</string>
+    <string name="edit_time_block">Edit Time Block</string>
+    <string name="new_time_block">New Time Block</string>
+    <string name="target_app">Target App</string>
+    <string name="select_target_app">Select Target App</string>
+    <string name="repeat_days">Repeat Days</string>
+    <string name="everyday">Every day</string>
+    <string name="weekdays">Weekdays</string>
+    <string name="weekends">Weekends</string>
+    <string name="delete_block">Delete Block</string>
+    <string name="save_block">Save Block</string>
+    <string name="tap_slot_to_block">Tap any time to add a block</string>
 </resources>

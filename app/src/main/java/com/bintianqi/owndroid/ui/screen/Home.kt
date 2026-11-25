@@ -57,6 +57,8 @@ import com.bintianqi.owndroid.feature.applications.AppChooserMode
 import com.bintianqi.owndroid.feature.focus.FocusScreen
 import com.bintianqi.owndroid.feature.focus.FocusState
 import com.bintianqi.owndroid.feature.focus.FocusViewModel
+import com.bintianqi.owndroid.feature.time_blocker.TimeBlockerCalendarScreen
+import com.bintianqi.owndroid.feature.time_blocker.TimeBlockerViewModel
 import com.bintianqi.owndroid.ui.navigation.Destination
 import com.bintianqi.owndroid.utils.BottomPadding
 import com.bintianqi.owndroid.utils.PrivilegeStatus
@@ -68,6 +70,7 @@ import kotlinx.coroutines.flow.StateFlow
 fun HomeScreen(
     privilegeState: StateFlow<PrivilegeStatus>,
     focusVm: FocusViewModel,
+    blockerVm: TimeBlockerViewModel,
     onNavigate: (Destination) -> Unit
 ) {
     val privilege by privilegeState.collectAsState()
@@ -77,7 +80,7 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            if (!isFocusActive) {
+            if (!isFocusActive && selectedTab != 1) {
                 TopAppBar(
                     title = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -154,9 +157,9 @@ fun HomeScreen(
                 )
             }
             1 -> {
-                BlockerTab(
-                    modifier = Modifier.padding(paddingValues),
-                    onNavigate = onNavigate
+                TimeBlockerCalendarScreen(
+                    vm = blockerVm,
+                    modifier = Modifier.padding(paddingValues)
                 )
             }
             2 -> {
@@ -176,64 +179,7 @@ fun HomeScreen(
     }
 }
 
-@Composable
-private fun BlockerTab(
-    modifier: Modifier = Modifier,
-    onNavigate: (Destination) -> Unit
-) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 12.dp)
-    ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(28.dp),
-            color = MaterialTheme.colorScheme.secondaryContainer,
-            tonalElevation = 2.dp
-        ) {
-            Column(modifier = Modifier.padding(24.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.12f),
-                        modifier = Modifier.size(44.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                painter = painterResource(R.drawable.timer_fill0),
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
-                    Spacer(Modifier.width(14.dp))
-                    Text(
-                        text = stringResource(R.string.time_blocker),
-                        style = typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                }
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = stringResource(R.string.time_blocker_dashboard_desc),
-                    style = typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.85f)
-                )
-            }
-        }
 
-        Spacer(Modifier.height(16.dp))
-
-        HomePageItem(R.string.time_blocker, R.drawable.timer_fill0) {
-            onNavigate(Destination.TimeBlocker)
-        }
-
-        Spacer(Modifier.height(BottomPadding))
-    }
-}
 
 @Composable
 private fun ToolsTab(

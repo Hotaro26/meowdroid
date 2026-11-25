@@ -166,6 +166,7 @@ fun myEntryProvider(
         HomeScreen(
             container.privilegeState,
             viewModel(factory = container.viewModelFactory),
+            viewModel(factory = container.viewModelFactory),
             ::navigate
         )
     }
