@@ -15,7 +15,7 @@ android {
             keyAlias = (project.findProperty("KeyAlias") as String?) ?: "testkey"
         }
     }
-    namespace = "com.bintianqi.owndroid"
+    namespace = "com.hotaro.meowdroid"
     compileSdk = 37
     buildToolsVersion = "37.0.0"
 
@@ -23,7 +23,7 @@ android {
     lint.disable += "All"
 
     defaultConfig {
-        applicationId = "com.bintianqi.owndroid"
+        applicationId = "com.hotaro.meowdroid"
         minSdk = 23
         targetSdk = 37
         versionCode = 49

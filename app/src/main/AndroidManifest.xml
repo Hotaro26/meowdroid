@@ -92,7 +92,7 @@
             android:launchMode="singleInstance"
             android:theme="@style/Theme.Transparent">
             <intent-filter>
-                <action android:name="com.bintianqi.owndroid.action.REQUEST_DHIZUKU_PERMISSION" />
+                <action android:name="com.hotaro.meowdroid.action.REQUEST_DHIZUKU_PERMISSION" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
@@ -163,7 +163,7 @@
             android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
         <provider
             android:name=".MyDhizukuProvider"
-            android:authorities="com.bintianqi.owndroid.dhizuku_server.provider"
+            android:authorities="com.hotaro.meowdroid.dhizuku_server.provider"
             android:directBootAware="true"
             android:enabled="true"
             android:exported="true"></provider>

@@ -1,0 +1,250 @@
+package com.hotaro.meowdroid.utils
+
+import android.annotation.SuppressLint
+import android.app.admin.ConnectEvent
+import android.app.admin.DevicePolicyManager
+import android.app.admin.DnsEvent
+import android.app.admin.IDevicePolicyManager
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.pm.IPackageInstaller
+import android.content.pm.PackageInstaller
+import android.os.Binder
+import android.os.Build.VERSION
+import android.os.IBinder
+import android.os.UserHandle
+import android.os.UserManager
+import android.util.Log
+import androidx.annotation.Keep
+import androidx.annotation.RequiresApi
+import com.hotaro.meowdroid.ActivationService
+import com.hotaro.meowdroid.MyApplication
+import com.hotaro.meowdroid.PrivilegeHelper
+import com.hotaro.meowdroid.R
+import com.hotaro.meowdroid.feature.network.NetworkLog
+import com.hotaro.meowdroid.feature.settings.SettingsRepository
+import com.hotaro.meowdroid.feature.users.UserOperationType
+import com.rosan.dhizuku.api.Dhizuku
+import com.rosan.dhizuku.api.DhizukuBinderWrapper
+import com.topjohnwu.superuser.ipc.RootService
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+
+@SuppressLint("PrivateApi")
+fun binderWrapperDevicePolicyManager(appContext: Context): DevicePolicyManager {
+    val context = appContext.createPackageContext(Dhizuku.getOwnerComponent().packageName, Context.CONTEXT_IGNORE_SECURITY)
+    val manager = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+    val field = manager.javaClass.getDeclaredField("mService")
+    field.isAccessible = true
+    val oldInterface = field[manager] as IDevicePolicyManager
+    if (oldInterface is DhizukuBinderWrapper) return manager
+    val oldBinder = oldInterface.asBinder()
+    val newBinder = Dhizuku.binderWrapper(oldBinder)
+    val newInterface = IDevicePolicyManager.Stub.asInterface(newBinder)
+    field[manager] = newInterface
+    return manager
+}
+
+@SuppressLint("PrivateApi")
+private fun binderWrapperPackageInstaller(appContext: Context): PackageInstaller {
+    val context = appContext.createPackageContext(Dhizuku.getOwnerComponent().packageName, Context.CONTEXT_IGNORE_SECURITY)
+    val installer = context.packageManager.packageInstaller
+    val field = installer.javaClass.getDeclaredField("mInstaller")
+    field.isAccessible = true
+    val oldInterface = field[installer] as IPackageInstaller
+    if (oldInterface is DhizukuBinderWrapper) return installer
+    val oldBinder = oldInterface.asBinder()
+    val newBinder = Dhizuku.binderWrapper(oldBinder)
+    val newInterface = IPackageInstaller.Stub.asInterface(newBinder)
+    field[installer] = newInterface
+    return installer
+}
+
+fun Context.getPackageInstaller(dhizuku: Boolean): PackageInstaller {
+    return if (dhizuku) {
+        try {
+            binderWrapperPackageInstaller(this)
+        } catch (e: Exception) {
+            throw DhizukuException(DhizukuError.Binder, e)
+        }
+    } else {
+        this.packageManager.packageInstaller
+    }
+}
+
+@RequiresApi(26)
+fun retrieveNetworkLogs(app: MyApplication, token: Long) {
+    CoroutineScope(Dispatchers.IO).launch {
+        val ph = app.container.privilegeHelper
+        val logs = ph.myDpm.retrieveNetworkLogs(ph.myDar, token)?.mapNotNull {
+            when (it) {
+                is DnsEvent -> NetworkLog(
+                    if (VERSION.SDK_INT >= 28) it.id else null, it.packageName, it.timestamp, "dns",
+                    it.hostname, it.totalResolvedAddressCount,
+                    it.inetAddresses.mapNotNull { address -> address.hostAddress }, null, null
+                )
+                is ConnectEvent -> NetworkLog(
+                    if (VERSION.SDK_INT >= 28) it.id else null, it.packageName, it.timestamp,
+                    "connect", null, null, null, it.inetAddress.hostAddress, it.port
+                )
+                else -> null
+            }
+        }
+        if (logs.isNullOrEmpty()) return@launch
+        app.container.networkLoggingRepo.writeNetworkLogs(logs)
+        NotificationUtils.sendBasicNotification(
+            app, NotificationType.NetworkLogsCollected,
+            app.getString(R.string.n_logs_in_total, logs.size)
+        )
+    }
+}
+
+val activateOrgProfileCommand = "dpm mark-profile-owner-on-organization-owned-device --user " +
+        "${Binder.getCallingUid() / 100000} com.hotaro.meowdroid/com.hotaro.meowdroid.Receiver"
+
+@RequiresApi(24)
+fun retrieveSecurityLogs(app: MyApplication) {
+    CoroutineScope(Dispatchers.IO).launch {
+        val ph = app.container.privilegeHelper
+        val logs = ph.myDpm.retrieveSecurityLogs(ph.myDar)
+        if (logs.isNullOrEmpty()) return@launch
+        app.container.securityLoggingRepo.writeSecurityLogs(logs)
+        NotificationUtils.sendBasicNotification(
+            app, NotificationType.SecurityLogsCollected,
+            app.getString(R.string.n_logs_in_total, logs.size)
+        )
+    }
+}
+
+fun setDefaultAffiliationID(ph: PrivilegeHelper, sr: SettingsRepository) {
+    if (VERSION.SDK_INT >= 26 && !sr.data.privilege.defaultAffiliationIdSet) {
+        try {
+            ph.dpm.setAffiliationIds(ph.dar, setOf("OwnDroid_default_affiliation_id"))
+            sr.update { it.privilege.defaultAffiliationIdSet = true }
+            Log.d("DPM", "Default affiliation id set")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+}
+
+fun parsePackageInstallerMessage(context: Context, result: Intent): String {
+    val status = result.getIntExtra(PackageInstaller.EXTRA_STATUS, 999)
+    val statusMessage = result.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
+    val otherPackageName = result.getStringExtra(PackageInstaller.EXTRA_OTHER_PACKAGE_NAME)
+    return when(status) {
+        PackageInstaller.STATUS_FAILURE_BLOCKED ->
+            context.getString(
+                R.string.status_failure_blocked,
+                otherPackageName ?: context.getString(R.string.unknown)
+            )
+        PackageInstaller.STATUS_FAILURE_ABORTED ->
+            context.getString(R.string.status_failure_aborted)
+        PackageInstaller.STATUS_FAILURE_INVALID ->
+            context.getString(R.string.status_failure_invalid)
+        PackageInstaller.STATUS_FAILURE_CONFLICT ->
+            context.getString(R.string.status_failure_conflict, otherPackageName ?: "???")
+        PackageInstaller.STATUS_FAILURE_STORAGE ->
+            context.getString(R.string.status_failure_storage) +
+                    result.getStringExtra(PackageInstaller.EXTRA_STORAGE_PATH).let { if(it == null) "" else "\n$it" }
+        PackageInstaller.STATUS_FAILURE_INCOMPATIBLE ->
+            context.getString(R.string.status_failure_incompatible)
+        PackageInstaller.STATUS_FAILURE_TIMEOUT ->
+            context.getString(R.string.timeout)
+        else -> ""
+    } + statusMessage.let { if(it == null) "" else "\n$it" }
+}
+
+
+fun handlePrivilegeChange(
+    context: Context, ps: PrivilegeStatus, ph: PrivilegeHelper, sr: SettingsRepository
+) {
+    if (ps.activated) {
+        if (!ps.dhizuku) {
+            setDefaultAffiliationID(ph, sr)
+        }
+    } else {
+        sr.update {
+            it.privilege.defaultAffiliationIdSet = false
+            it.api.enabled = false
+        }
+    }
+}
+
+fun doUserOperationWithContext(
+    context: Context, dpm: DevicePolicyManager, dar: ComponentName,
+    type: UserOperationType, id: Int, isUserId: Boolean
+): Boolean {
+    val um = context.getSystemService(Context.USER_SERVICE) as UserManager
+    val handle = if (isUserId && VERSION.SDK_INT >= 24) {
+        UserHandle.getUserHandleForUid(id * 100000)
+    } else {
+        um.getUserForSerialNumber(id.toLong())
+    }
+    if (handle == null) return false
+    return when (type) {
+        UserOperationType.Start -> {
+            if (VERSION.SDK_INT >= 28)
+                dpm.startUserInBackground(dar, handle) == UserManager.USER_OPERATION_SUCCESS
+            else false
+        }
+        UserOperationType.Switch -> dpm.switchUser(dar, handle)
+        UserOperationType.Stop -> {
+            if (VERSION.SDK_INT >= 28)
+                dpm.stopUser(dar, handle) == UserManager.USER_OPERATION_SUCCESS
+            else false
+        }
+        UserOperationType.Delete -> dpm.removeUser(dar, handle)
+    }
+}
+
+const val ACTIVATE_DEVICE_OWNER_COMMAND = "dpm set-device-owner com.hotaro.meowdroid/.Receiver"
+
+class PrivilegeStatus(
+    val device: Boolean = false,
+    val profile: Boolean = false,
+    val dhizuku: Boolean = false,
+    val work: Boolean = false,
+    val org: Boolean = false,
+    val affiliated: Boolean = false
+) {
+    val activated = device || profile
+}
+
+fun getPrivilegeStatus(dpm: DevicePolicyManager, dar: ComponentName, dhizuku: Boolean): PrivilegeStatus {
+    val profile = dpm.isProfileOwnerApp(dar.packageName)
+    val work = profile && VERSION.SDK_INT >= 24 && dpm.isManagedProfile(dar)
+    return PrivilegeStatus(
+        device = dpm.isDeviceOwnerApp(dar.packageName),
+        profile = profile,
+        dhizuku = dhizuku,
+        work = work,
+        org = work && VERSION.SDK_INT >= 30 && dpm.isOrganizationOwnedDeviceWithManagedProfile,
+        affiliated = VERSION.SDK_INT >= 28 && dpm.isAffiliatedUser
+    )
+}
+
+class DhizukuException: Exception {
+    val reason: DhizukuError
+    constructor(r: DhizukuError) {
+        reason = r
+    }
+    constructor(r: DhizukuError, e: Throwable) {
+        reason = r
+        initCause(e)
+    }
+}
+
+enum class DhizukuError {
+    Init, Permission, Binder
+}
+
+@Keep
+class MyRootService : RootService() {
+    override fun onBind(p0: Intent): IBinder {
+        val ss = ActivationService()
+        return ss
+    }
+}

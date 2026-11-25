@@ -1,0 +1,639 @@
+package com.hotaro.meowdroid.feature.settings
+
+import android.content.Context
+import android.content.Intent
+import android.os.Build.VERSION
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.hotaro.meowdroid.R
+import com.hotaro.meowdroid.ui.CancelTextButton
+import com.hotaro.meowdroid.ui.ConfirmTextButton
+import com.hotaro.meowdroid.ui.FunctionItem
+import com.hotaro.meowdroid.ui.MasterSwitch
+import com.hotaro.meowdroid.ui.MyScaffold
+import com.hotaro.meowdroid.ui.NavIcon
+import com.hotaro.meowdroid.ui.SwitchItem
+import com.hotaro.meowdroid.ui.navigation.Destination
+import com.hotaro.meowdroid.utils.BottomPadding
+import com.hotaro.meowdroid.utils.HorizontalPadding
+import com.hotaro.meowdroid.utils.MyNotificationChannel
+import com.hotaro.meowdroid.utils.NotificationType
+import com.hotaro.meowdroid.utils.ShortcutSystemOption
+import com.hotaro.meowdroid.utils.adaptiveInsets
+import com.hotaro.meowdroid.utils.generateBase64Key
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import kotlin.system.exitProcess
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsScreen(
+    vm: SettingsViewModel, onNavigate: (Destination) -> Unit, onNavigateUp: () -> Unit
+) {
+    val privilege by vm.privilegeState.collectAsStateWithLifecycle()
+    val exportLogsLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) {
+            if (it != null) vm.exportLogs(it)
+        }
+    var dropdown by remember { mutableStateOf(false) }
+    val appHidden by vm.hiddenState.collectAsState()
+    var secretCodeDialog by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        vm.getAppHidden()
+    }
+    MyScaffold(
+        R.string.settings, onNavigateUp, 0.dp,
+        {
+
+            Box {
+                IconButton({ dropdown = true }) {
+                    Icon(Icons.Default.MoreVert, null)
+                }
+                DropdownMenu(dropdown, { dropdown = false }) {
+                    DropdownMenuItem(
+                        { Text(stringResource(R.string.export_logs)) },
+                        {
+                            dropdown = false
+                            val time =
+                                SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault())
+                                    .format(Date(System.currentTimeMillis()))
+                            exportLogsLauncher.launch("owndroid_log_$time")
+                        },
+                        leadingIcon = {
+                            Icon(painterResource(R.drawable.description_fill0), null)
+                        }
+                    )
+                    DropdownMenuItem(
+                        {
+                            Text(stringResource(if (appHidden) R.string.unhide else R.string.hide))
+                        },
+                        {
+                            dropdown = false
+                            if (appHidden) {
+                                vm.unhideApp()
+                            } else {
+                                secretCodeDialog = true
+                            }
+                        },
+                        leadingIcon = {
+                            Icon(
+                                painterResource(
+                                    if (appHidden) R.drawable.visibility_fill0
+                                    else R.drawable.visibility_off_fill0
+                                ),
+                                null
+                            )
+                        }
+                    )
+                    DropdownMenuItem(
+                        { Text(stringResource(R.string.exit)) },
+                        { exitProcess(0) },
+                        leadingIcon = { Icon(Icons.Default.Close, null) }
+                    )
+                }
+            }
+        }
+    ) {
+        FunctionItem(R.string.options, icon = R.drawable.tune_fill0) {
+            onNavigate(Destination.SettingsOptions)
+        }
+        FunctionItem(R.string.appearance, icon = R.drawable.format_paint_fill0) {
+            onNavigate(Destination.AppearanceSettings)
+        }
+        FunctionItem(R.string.shortcuts, icon = R.drawable.open_in_new) {
+            onNavigate(Destination.ShortcutSettings)
+        }
+        FunctionItem(R.string.app_lock, icon = R.drawable.lock_fill0) {
+            onNavigate(Destination.AppLockSettings)
+        }
+        FunctionItem(R.string.sync_transfer, icon = R.drawable.sync_alt_fill0) {
+            onNavigate(Destination.SettingsSync)
+        }
+        if (privilege.device || privilege.profile) {
+            FunctionItem(R.string.api, icon = R.drawable.code_fill0) {
+                onNavigate(Destination.ApiSettings)
+            }
+        }
+        if (privilege.device && !privilege.dhizuku) {
+            FunctionItem(R.string.notifications, icon = R.drawable.notifications_fill0) {
+                onNavigate(Destination.NotificationSettings)
+            }
+        }
+        FunctionItem(R.string.about, icon = R.drawable.info_fill0) {
+            onNavigate(Destination.About)
+        }
+        Spacer(Modifier.height(BottomPadding))
+    }
+    if (secretCodeDialog) AlertDialog(
+        text = { Text(stringResource(R.string.info_secret_code)) },
+        onDismissRequest = { secretCodeDialog = false },
+        confirmButton = {
+            ConfirmTextButton(onClick = vm::hideApp)
+        },
+        dismissButton = {
+            CancelTextButton { secretCodeDialog = false }
+        }
+    )
+}
+
+@Composable
+fun SettingsOptionsScreen(
+    vm: SettingsViewModel, onNavigateUp: () -> Unit
+) {
+    val dangerousFeatures by vm.dangerousFeaturesState.collectAsState()
+    MyScaffold(R.string.options, onNavigateUp, 0.dp) {
+        SwitchItem(
+            R.string.show_dangerous_features, dangerousFeatures, vm::setDisplayDangerousFeatures,
+            R.drawable.warning_fill0
+        )
+    }
+}
+
+@Composable
+fun AppearanceScreen(
+    vm: SettingsViewModel, onNavigateUp: () -> Unit
+) {
+    val uiState by vm.themeState.collectAsState()
+    var darkThemeMenu by remember { mutableStateOf(false) }
+    MyScaffold(R.string.appearance, onNavigateUp, 0.dp) {
+        if (VERSION.SDK_INT >= 31) {
+            SwitchItem(R.string.material_you_color, uiState.materialYou, vm::setMaterialYou)
+        }
+        Box {
+            FunctionItem(R.string.dark_theme, stringResource(uiState.dark.text)) {
+                darkThemeMenu = true
+            }
+            DropdownMenu(
+                darkThemeMenu, { darkThemeMenu = false },
+                offset = DpOffset(x = 25.dp, y = 0.dp)
+            ) {
+                MySettings.DarkMode.entries.forEach {
+                    DropdownMenuItem(
+                        { Text(stringResource(it.text)) },
+                        {
+                            vm.setDarkMode(it)
+                            darkThemeMenu = false
+                        }
+                    )
+                }
+            }
+        }
+        AnimatedVisibility(
+            uiState.dark == MySettings.DarkMode.On ||
+                    (uiState.dark == MySettings.DarkMode.FollowSystem && isSystemInDarkTheme())
+        ) {
+            SwitchItem(R.string.black_theme, uiState.black, vm::setBlackTheme)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ShortcutSettingsScreen(vm: SettingsViewModel, onNavigateUp: () -> Unit) {
+    val sb = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    var addShortcutDialog by remember { mutableStateOf(false) }
+    val shortcutEnabled by vm.shortcutEnabledState.collectAsState()
+    val shortcuts by vm.shortcutsState.collectAsState()
+    val lo = LocalLifecycleOwner.current
+    DisposableEffect(lo) {
+        val ob = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) vm.getShortcuts()
+        }
+        lo.lifecycle.addObserver(ob)
+        onDispose { lo.lifecycle.removeObserver(ob) }
+    }
+    Scaffold(
+        Modifier.nestedScroll(sb.nestedScrollConnection),
+        topBar = {
+            LargeTopAppBar(
+                { Text(stringResource(R.string.shortcuts)) },
+                navigationIcon = { NavIcon(onNavigateUp) },
+                scrollBehavior = sb
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                { addShortcutDialog = true },
+                Modifier.navigationBarsPadding()
+            ) {
+                Icon(Icons.Default.Add, stringResource(R.string.create_shortcut))
+            }
+        },
+        contentWindowInsets = adaptiveInsets()
+    ) { paddingValues ->
+        LazyColumn(
+            Modifier.padding(paddingValues)
+        ) {
+            item {
+                MasterSwitch(R.string.enable, shortcutEnabled, vm::setShortcutsEnabled)
+            }
+            items(shortcuts, { it.id }) { shortcut ->
+                Row(
+                    Modifier
+                        .animateItem()
+                        .fillMaxWidth()
+                        .padding(HorizontalPadding, 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(Modifier.weight(1F), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(painterResource(shortcut.getIcon()), null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(shortcut.label)
+                    }
+                    Switch(shortcut.enabled, { vm.setSingleShortcutEnabled(shortcut.id, it) })
+                }
+            }
+        }
+    }
+    @Composable
+    fun NewShortcutItem(text: Int, icon: Int, onClick: () -> Unit) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = 2.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .clickable {
+                    onClick()
+                    addShortcutDialog = false
+                }
+                .padding(4.dp, 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(painterResource(icon), null)
+            Spacer(Modifier.width(4.dp))
+            Text(stringResource(text), style = MaterialTheme.typography.bodyLarge)
+        }
+    }
+    if (addShortcutDialog) AlertDialog(
+        text = {
+            Column(Modifier.fillMaxWidth()) {
+                NewShortcutItem(R.string.disable_cam, R.drawable.no_photography_fill0) {
+                    vm.pinSystemOptionShortcut(ShortcutSystemOption.Camera)
+                }
+                NewShortcutItem(R.string.mute, R.drawable.volume_off_fill0) {
+                    vm.pinSystemOptionShortcut(ShortcutSystemOption.Mute)
+                }
+                NewShortcutItem(R.string.lock_screen, R.drawable.screen_lock_portrait_fill0) {
+                    vm.pinLockScreenShortcut()
+                }
+            }
+        },
+        confirmButton = {
+            CancelTextButton { addShortcutDialog = false }
+        },
+        onDismissRequest = { addShortcutDialog = false }
+    )
+}
+
+@Composable
+fun AppLockSettingsScreen(
+    vm: SettingsViewModel, onNavigateUp: () -> Unit
+) = MyScaffold(R.string.app_lock, onNavigateUp) {
+    val config = vm.getAppLockConfig()
+    var password by rememberSaveable { mutableStateOf("") }
+    var confirmPassword by rememberSaveable { mutableStateOf("") }
+    var allowBiometrics by rememberSaveable { mutableStateOf(config.biometrics) }
+    var lockWhenLeaving by rememberSaveable { mutableStateOf(config.lockWhenLeaving) }
+    var allowTotp by rememberSaveable { mutableStateOf(config.totp) }
+    var alreadySet by rememberSaveable { mutableStateOf(config.passwordHash.isNotEmpty()) }
+    val totpAvailable = vm.isTotpConfigured()
+    val isInputLegal = password.length !in 1..3 &&
+            (alreadySet || password.isNotBlank() || (allowTotp && totpAvailable))
+    var showSecret by rememberSaveable { mutableStateOf(false) }
+    var generatedSecret by rememberSaveable { mutableStateOf("") }
+    var showRemoveConfirm by rememberSaveable { mutableStateOf(false) }
+    var showDisableConfirm by rememberSaveable { mutableStateOf(false) }
+    OutlinedTextField(
+        password, { password = it }, Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        label = { Text(stringResource(R.string.password)) },
+        supportingText = {
+            Text(
+                stringResource(
+                    if (alreadySet) R.string.leave_empty_to_remain_unchanged
+                    else if (allowTotp && totpAvailable) R.string.password_optional_with_totp
+                    else R.string.minimum_length_4
+                )
+            )
+        },
+        visualTransformation = PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.Password, imeAction = ImeAction.Next
+        )
+    )
+    OutlinedTextField(
+        confirmPassword, { confirmPassword = it }, Modifier.fillMaxWidth(),
+        label = { Text(stringResource(R.string.confirm_password)) },
+        visualTransformation = PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.Password, imeAction = ImeAction.Done
+        )
+    )
+    if (VERSION.SDK_INT >= 28) Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        Arrangement.SpaceBetween, Alignment.CenterVertically
+    ) {
+        Text(stringResource(R.string.allow_biometric_unlock))
+        Switch(allowBiometrics, { allowBiometrics = it })
+    }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(bottom = 6.dp),
+        Arrangement.SpaceBetween, Alignment.CenterVertically
+    ) {
+        Text(stringResource(R.string.lock_when_leaving))
+        Switch(lockWhenLeaving, { lockWhenLeaving = it })
+    }
+    if (!totpAvailable) {
+        Row(
+            Modifier.fillMaxWidth().padding(bottom = 6.dp),
+            Arrangement.SpaceBetween, Alignment.CenterVertically
+        ) {
+            Text(
+                stringResource(R.string.totp_not_configured_hint),
+                Modifier.weight(1f),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Button({
+                generatedSecret = vm.setupTotp()
+                showSecret = true
+            }) {
+                Text(stringResource(R.string.time_blocker_setup_totp))
+            }
+        }
+    } else {
+        Row(
+            Modifier.fillMaxWidth(),
+            Arrangement.SpaceBetween, Alignment.CenterVertically
+        ) {
+            Text(stringResource(R.string.allow_totp_unlock))
+            Switch(allowTotp, { allowTotp = it })
+        }
+        Row(Modifier.fillMaxWidth().padding(bottom = 6.dp)) {
+            TextButton({
+                generatedSecret = vm.getTotpSecret()
+                showSecret = true
+            }) {
+                Text(stringResource(R.string.time_blocker_totp_secret))
+            }
+            TextButton({ showRemoveConfirm = true }) {
+                Text(
+                    stringResource(R.string.time_blocker_remove_totp),
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+    }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(
+            {
+                vm.setAppLockConfig(password, allowBiometrics, lockWhenLeaving, allowTotp)
+                onNavigateUp()
+            },
+            if (alreadySet) Modifier.weight(1f) else Modifier.fillMaxWidth(),
+            isInputLegal && confirmPassword == password
+        ) {
+            Text(stringResource(if (alreadySet) R.string.update else R.string.set))
+        }
+        if (alreadySet) {
+            Button(
+                { showDisableConfirm = true },
+                Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError
+                )
+            ) {
+                Text(stringResource(R.string.disable))
+            }
+        }
+    }
+    if (showDisableConfirm) AlertDialog(
+        onDismissRequest = { showDisableConfirm = false },
+        title = { Text(stringResource(R.string.disable_app_lock_confirmation_title)) },
+        text = { Text(stringResource(R.string.disable_app_lock_confirmation_message)) },
+        confirmButton = {
+            TextButton({
+                showDisableConfirm = false
+                vm.disableAppLock()
+                onNavigateUp()
+            }) {
+                Text(stringResource(R.string.disable), color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = {
+            CancelTextButton { showDisableConfirm = false }
+        }
+    )
+    if (showSecret && generatedSecret.isNotEmpty()) {
+        // otpauth URI is ASCII; byte-mode QR via ISO-8859-1 roundtrips it exactly
+        val totpQr = remember(generatedSecret) {
+            QrUtils.encodeToBitmap(vm.getOtpAuthUri().toByteArray(Charsets.ISO_8859_1), 600)
+        }
+        AlertDialog(
+            onDismissRequest = { showSecret = false },
+            title = { Text(stringResource(R.string.time_blocker_totp_secret)) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.time_blocker_scan_qr))
+                    Spacer(Modifier.height(8.dp))
+                    Image(
+                        bitmap = totpQr.asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(1f),
+                        filterQuality = FilterQuality.None
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    SelectionContainer {
+                        Text(
+                            generatedSecret,
+                            fontFamily = FontFamily.Monospace,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    SelectionContainer {
+                        Text(
+                            vm.getOtpAuthUri(),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                ConfirmTextButton { showSecret = false }
+            }
+        )
+    }
+    if (showRemoveConfirm) {
+        AlertDialog(
+            onDismissRequest = { showRemoveConfirm = false },
+            title = { Text(stringResource(R.string.time_blocker_remove_totp)) },
+            confirmButton = {
+                ConfirmTextButton {
+                    vm.removeTotp()
+                    allowTotp = false
+                    showRemoveConfirm = false
+                }
+            },
+            dismissButton = {
+                CancelTextButton { showRemoveConfirm = false }
+            }
+        )
+    }
+}
+
+@Composable
+fun ApiSettings(
+    vm: SettingsViewModel, onNavigateUp: () -> Unit
+) {
+    MyScaffold(R.string.api, onNavigateUp) {
+        var enabled by rememberSaveable { mutableStateOf(vm.getApiEnabled()) }
+        var key by rememberSaveable { mutableStateOf(vm.getApiKey()) }
+        SwitchItem(R.string.enable, state = enabled, onCheckedChange = {
+            enabled = it
+        }, padding = false)
+        if (enabled) {
+            OutlinedTextField(
+                key, { key = it },
+                Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 4.dp),
+                label = { Text(stringResource(R.string.api_key)) },
+                trailingIcon = {
+                    IconButton({ key = generateBase64Key(10) }) {
+                        Icon(painterResource(R.drawable.casino_fill0), null)
+                    }
+                }
+            )
+        }
+        Button(
+            {
+                vm.setApiEnabled(enabled, key)
+            },
+            Modifier
+                .fillMaxWidth()
+                .padding(bottom = 10.dp),
+            enabled = !enabled || key.length !in 0..7
+        ) {
+            Text(stringResource(R.string.apply))
+        }
+    }
+}
+
+@Composable
+fun NotificationsScreen(
+    vm: SettingsViewModel, onNavigateUp: () -> Unit
+) = MyScaffold(R.string.notifications, onNavigateUp, 0.dp) {
+    val notifications by vm.enabledNotifications.collectAsState()
+    NotificationType.entries.filter {
+        it.channel == MyNotificationChannel.Events
+    }.forEach { type ->
+        SwitchItem(type.text, type.id in notifications, { vm.setNotificationEnabled(type, it) })
+    }
+}
+
+@Composable
+fun AboutScreen(onNavigateUp: () -> Unit) {
+    val context = LocalContext.current
+    val pkgInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+    val verCode = pkgInfo.versionCode
+    val verName = pkgInfo.versionName
+    MyScaffold(R.string.about, onNavigateUp, 0.dp) {
+        Text(
+            stringResource(R.string.app_name) + " v$verName ($verCode)",
+            Modifier.padding(start = 16.dp)
+        )
+        Spacer(Modifier.padding(vertical = 5.dp))
+        FunctionItem(R.string.project_homepage, "GitHub", R.drawable.open_in_new) {
+            shareLink(
+                context, "https://github.com/BinTianqi/OwnDroid"
+            )
+        }
+    }
+}
+
+fun shareLink(inputContext: Context, link: String) {
+    val uri = link.toUri()
+    val intent = Intent(Intent.ACTION_VIEW, uri)
+    inputContext.startActivity(Intent.createChooser(intent, "Open in browser"), null)
+}

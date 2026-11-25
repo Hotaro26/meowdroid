@@ -1,0 +1,103 @@
+package com.hotaro.meowdroid.feature.network
+
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import com.hotaro.meowdroid.R
+import com.hotaro.meowdroid.ui.CancelTextButton
+import com.hotaro.meowdroid.ui.CircularProgressDialog
+import com.hotaro.meowdroid.ui.ConfirmTextButton
+import com.hotaro.meowdroid.ui.MasterSwitch
+import com.hotaro.meowdroid.ui.MyScaffold
+import com.hotaro.meowdroid.ui.Notes
+import com.hotaro.meowdroid.utils.HorizontalPadding
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+@RequiresApi(26)
+@Composable
+fun NetworkLoggingScreen(
+    vm: NetworkLoggingViewModel, onNavigateUp: () -> Unit
+) {
+    val enabled by vm.enabledState.collectAsState()
+    var count by remember { mutableIntStateOf(0) }
+    var dialog by rememberSaveable { mutableStateOf(false) }
+    var exporting by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        vm.getEnabled()
+        vm.getCount()
+    }
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            exporting = true
+            vm.exportLogs(uri) {
+                exporting = false
+            }
+        }
+    }
+    MyScaffold(R.string.network_logging, onNavigateUp, 0.dp) {
+        MasterSwitch(R.string.enable, enabled, vm::setEnabled)
+        Text(
+            stringResource(R.string.n_logs_in_total, count),
+            Modifier.padding(HorizontalPadding, 5.dp)
+        )
+        Button(
+            {
+                val date = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())
+                exportLauncher.launch("network_logs_$date")
+            },
+            Modifier.fillMaxWidth().padding(horizontal = HorizontalPadding),
+            count > 0
+        ) {
+            Text(stringResource(R.string.export_logs))
+        }
+        if (count > 0) Button(
+            {
+                dialog = true
+            },
+            Modifier.fillMaxWidth().padding(horizontal = HorizontalPadding),
+        ) {
+            Text(stringResource(R.string.delete_logs))
+        }
+        Spacer(Modifier.height(10.dp))
+        Notes(R.string.info_network_log, HorizontalPadding)
+    }
+    if (exporting) CircularProgressDialog { }
+    if (dialog) AlertDialog(
+        text = {
+            Text(stringResource(R.string.delete_logs))
+        },
+        confirmButton = {
+            ConfirmTextButton {
+                vm.deleteLogs()
+                dialog = false
+            }
+        },
+        dismissButton = {
+            CancelTextButton { dialog = false }
+        },
+        onDismissRequest = { dialog = false }
+    )
+}
