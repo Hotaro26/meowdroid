@@ -75,10 +75,7 @@ fun HomeScreen(
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val isFocusActive = session.state == FocusState.ACTIVE
 
-    val sb = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-
     Scaffold(
-        modifier = if (!isFocusActive) Modifier.nestedScroll(sb.nestedScrollConnection) else Modifier,
         topBar = {
             if (!isFocusActive) {
                 TopAppBar(
