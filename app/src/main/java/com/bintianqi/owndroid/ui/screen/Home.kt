@@ -230,20 +230,6 @@ private fun BlockerTab(
         HomePageItem(R.string.time_blocker, R.drawable.timer_fill0) {
             onNavigate(Destination.TimeBlocker)
         }
-        HomePageItem(R.string.suspend, R.drawable.volume_off_fill0) {
-            onNavigate(Destination.Suspend)
-        }
-        HomePageItem(R.string.hide, R.drawable.visibility_off_fill0) {
-            onNavigate(Destination.Hide)
-        }
-        HomePageItem(R.string.block_uninstall, R.drawable.delete_forever_fill0) {
-            onNavigate(Destination.BlockUninstall)
-        }
-        if (VERSION.SDK_INT >= 24) {
-            HomePageItem(R.string.user_restriction, R.drawable.person_off) {
-                onNavigate(Destination.UserRestriction)
-            }
-        }
 
         Spacer(Modifier.height(BottomPadding))
     }
@@ -277,6 +263,20 @@ private fun ToolsTab(
             }
             HomePageItem(R.string.applications_state, R.drawable.tune_fill0) {
                 onNavigate(Destination.ApplicationFeatures)
+            }
+            HomePageItem(R.string.suspend, R.drawable.volume_off_fill0) {
+                onNavigate(Destination.Suspend)
+            }
+            HomePageItem(R.string.hide, R.drawable.visibility_off_fill0) {
+                onNavigate(Destination.Hide)
+            }
+            HomePageItem(R.string.block_uninstall, R.drawable.delete_forever_fill0) {
+                onNavigate(Destination.BlockUninstall)
+            }
+            if (VERSION.SDK_INT >= 24) {
+                HomePageItem(R.string.user_restriction, R.drawable.person_off) {
+                    onNavigate(Destination.UserRestriction)
+                }
             }
             HomePageItem(R.string.users, R.drawable.manage_accounts_fill0) {
                 onNavigate(Destination.Users)
