@@ -1,6 +1,6 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!--Global-->
-    <string name="app_name" translatable="false">OwnDroid</string>
+    <string name="app_name" translatable="false">MeowDroid</string>
     <string name="place_holder" translatable="false"/>
     <string name="disabled">Disabled</string>
     <string name="enabled">Enabled</string>
@@ -839,4 +839,37 @@
     <string name="enter_confirm_to_deactivate">Please enter "CONFIRM" to continue.</string>
     <string name="delete_app_group">Delete app group</string>
     <string name="delete_app_group_confirmation">Are you sure you want to delete the app group %1$s? This action cannot be undone.</string>
+
+    <!-- MeowDroid Mindful & Navigation Strings -->
+    <string name="focus_mode">Focus</string>
+    <string name="monk_mode">Monk Mode</string>
+    <string name="monk_mode_subtitle">Distraction-free kiosk mode for deep mindfulness</string>
+    <string name="device_tools">Tools</string>
+    <string name="allowed_apps">Allowed Essentials</string>
+    <string name="add_allowed_app">Select Apps</string>
+    <string name="no_allowed_apps">No extra apps allowed (Full isolation)</string>
+    <string name="exit_password">Exit Password</string>
+    <string name="set_exit_password">Set Exit Password</string>
+    <string name="exit_password_desc">Requires password to exit Monk Mode early</string>
+    <string name="strict_mode">Strict Mode</string>
+    <string name="strict_mode_desc">Zero early exit until timer reaches zero</string>
+    <string name="strict_mode_warning">Strict Mode is active! You committed to completing this focus session.</string>
+    <string name="allow_notifications_focus">Allow Notifications</string>
+    <string name="allow_notifications_desc">Show status notifications during focus</string>
+    <string name="start_monk_mode">Enter Monk Mode</string>
+    <string name="end_session">End Session</string>
+    <string name="focus_remaining">Remaining</string>
+    <string name="session_completed_title">Session Completed! 🎉</string>
+    <string name="session_completed_desc">Great job staying present and focused.</string>
+    <string name="finish">Finish</string>
+    <string name="enter_password_to_exit">Enter password to end session early:</string>
+    <string name="wrong_password">Incorrect password!</string>
+    <string name="min_unit">min</string>
+    <string name="time_blocker_dashboard_desc">Enforce daily app limits and scheduled lockouts</string>
+    <string name="manage_rules">Manage Rules</string>
+    <string name="active_rules_count">%1$d active rules</string>
+    <string name="service_running">Service is running</string>
+    <string name="service_stopped">Service is stopped</string>
+    <string name="quick_suspend_apps">Quick Suspend Apps</string>
+    <string name="clear_password">Clear</string>
 </resources>

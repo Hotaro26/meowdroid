@@ -164,7 +164,9 @@ fun myEntryProvider(
 
     myEntry<Destination.Home> {
         HomeScreen(
-            container.privilegeState, ::navigate
+            container.privilegeState,
+            viewModel(factory = container.viewModelFactory),
+            ::navigate
         )
     }
     myEntry<Destination.WorkingModes> {

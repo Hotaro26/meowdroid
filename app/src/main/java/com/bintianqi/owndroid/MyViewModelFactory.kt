@@ -6,6 +6,8 @@ import com.bintianqi.owndroid.feature.applications.AppFeaturesViewModel
 import com.bintianqi.owndroid.feature.applications.AppGroup
 import com.bintianqi.owndroid.feature.applications.AppGroupRepository
 import com.bintianqi.owndroid.feature.applications.AppGroupViewModel
+import com.bintianqi.owndroid.feature.focus.FocusRepository
+import com.bintianqi.owndroid.feature.focus.FocusViewModel
 import com.bintianqi.owndroid.feature.network.NetworkLoggingRepository
 import com.bintianqi.owndroid.feature.network.NetworkLoggingViewModel
 import com.bintianqi.owndroid.feature.network.NetworkStatsViewModel
@@ -50,7 +52,7 @@ class MyViewModelFactory(
     val sr: SettingsRepository, val nlRepo: NetworkLoggingRepository,
     val dsRepo: DhizukuServerRepository, val slRepo: SecurityLoggingRepository,
     val agRepo: AppGroupRepository, val cpifRepo: CrossProfileIntentFilterRepository,
-    val tbRepo: TimeBlockerRepository, val um: UnlockManager,
+    val tbRepo: TimeBlockerRepository, val focusRepo: FocusRepository, val um: UnlockManager,
     val agState: MutableStateFlow<List<AppGroup>>,
     val de: MutableStateFlow<DhizukuError?>, val ps: MutableStateFlow<PrivilegeStatus>,
     val ts: MutableStateFlow<MySettings.Theme>, val tc: ToastChannel
@@ -144,6 +146,10 @@ class MyViewModelFactory(
 
         if (checkType(TimeBlockerViewModel::class)) {
             return TimeBlockerViewModel(app, ph, tbRepo, tc, ps) as T
+        }
+
+        if (checkType(FocusViewModel::class)) {
+            return FocusViewModel(app, ph, focusRepo, tc) as T
         }
 
         if (checkType(SettingsViewModel::class)) {
