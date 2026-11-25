@@ -265,7 +265,7 @@ fun FocusScreen(
                     }
                 }
 
-                // Zen Icon Button (Opens Zen settings: apps to block + exit key)
+                // Mindfulness Icon Button (Opens Zen settings: apps to block + exit key)
                 FilledTonalIconButton(
                     onClick = onNavigateToZen,
                     shape = RoundedCornerShape(24.dp),
@@ -276,8 +276,8 @@ fun FocusScreen(
                     modifier = Modifier.size(72.dp)
                 ) {
                     Icon(
-                        painter = painterResource(R.drawable.zen_fill0),
-                        contentDescription = "Zen Settings",
+                        painter = painterResource(R.drawable.mindfulness_fill0),
+                        contentDescription = "Mindfulness Settings",
                         modifier = Modifier.size(34.dp)
                     )
                 }
