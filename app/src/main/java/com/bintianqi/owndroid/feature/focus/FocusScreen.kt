@@ -3,9 +3,9 @@ package com.bintianqi.owndroid.feature.focus
 import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,7 +31,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
@@ -43,7 +42,9 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -66,9 +67,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -97,6 +100,7 @@ fun FocusScreen(
     var showAppPicker by remember { mutableStateOf(false) }
     var showPasswordDialog by remember { mutableStateOf(false) }
     var showExitPasswordDialog by remember { mutableStateOf(false) }
+    var showConfirmEndDialog by remember { mutableStateOf(false) }
     var exitPasswordInput by rememberSaveable { mutableStateOf("") }
     var exitPasswordError by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -109,57 +113,84 @@ fun FocusScreen(
                     .padding(horizontal = 20.dp, vertical = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Mindful Hero Header
-                ElevatedCard(
+                // M3 Expressive Hero Card
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.elevatedCardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                    )
+                    shape = RoundedCornerShape(32.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    tonalElevation = 2.dp
                 ) {
                     Column(
-                        modifier = Modifier.padding(20.dp),
+                        modifier = Modifier.padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f),
+                            modifier = Modifier.size(56.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    painter = painterResource(R.drawable.lock_clock_fill0),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(16.dp))
                         Text(
-                            text = "🧘 " + stringResource(R.string.monk_mode),
-                            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                            text = stringResource(R.string.monk_mode),
+                            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold),
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
-                        Spacer(Modifier.height(6.dp))
+                        Spacer(Modifier.height(4.dp))
                         Text(
                             text = stringResource(R.string.monk_mode_subtitle),
                             style = MaterialTheme.typography.bodyMedium,
                             textAlign = TextAlign.Center,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
                         )
                     }
                 }
 
                 Spacer(Modifier.height(20.dp))
 
-                // Duration Selector Card
-                Card(
+                // Expressive Duration Card
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                    shape = RoundedCornerShape(28.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    tonalElevation = 1.dp
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(modifier = Modifier.padding(20.dp)) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Icon(painterResource(R.drawable.timer_fill0), contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                text = "Duration: ${config.durationMinutes} ${stringResource(R.string.min_unit)}",
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+                            Icon(
+                                painter = painterResource(R.drawable.timer_fill0),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
                             )
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "Session Duration",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                )
+                                Text(
+                                    text = "${config.durationMinutes} ${stringResource(R.string.min_unit)}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
 
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(16.dp))
 
-                        // Duration Presets
+                        // Presets Chips
                         val presets = listOf(15, 25, 45, 60, 90)
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -169,7 +200,8 @@ fun FocusScreen(
                                 FilterChip(
                                     selected = config.durationMinutes == mins,
                                     onClick = { vm.setDuration(mins) },
-                                    label = { Text("$mins m") },
+                                    label = { Text("$mins m", fontWeight = FontWeight.SemiBold) },
+                                    shape = RoundedCornerShape(16.dp),
                                     leadingIcon = if (config.durationMinutes == mins) {
                                         { Icon(Icons.Default.Check, contentDescription = null, Modifier.size(16.dp)) }
                                     } else null
@@ -181,28 +213,118 @@ fun FocusScreen(
 
                 Spacer(Modifier.height(16.dp))
 
-                // Allowed Apps Card
-                Card(
+                // Enforcement Mode Settings Card
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                    shape = RoundedCornerShape(28.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    tonalElevation = 1.dp
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.shield_fill0),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                text = "Enforcement Methods",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                        }
+
+                        Spacer(Modifier.height(12.dp))
+
+                        // Kiosk Screen Lock Switch
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.focus_mode_kiosk),
+                                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
+                                )
+                                Text(
+                                    text = stringResource(R.string.focus_mode_kiosk_desc),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = config.useKioskLock,
+                                onCheckedChange = { vm.setUseKioskLock(it) }
+                            )
+                        }
+
+                        // App Suspension Switch
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.focus_mode_suspend),
+                                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
+                                )
+                                Text(
+                                    text = stringResource(R.string.focus_mode_suspend_desc),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = config.suspendOtherApps,
+                                onCheckedChange = { vm.setSuspendOtherApps(it) }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // Allowed Apps Card
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(28.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    tonalElevation = 1.dp
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(painterResource(R.drawable.apps_fill0), contentDescription = null)
-                                Spacer(Modifier.width(8.dp))
+                                Icon(
+                                    painter = painterResource(R.drawable.apps_fill0),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(Modifier.width(12.dp))
                                 Text(
                                     text = stringResource(R.string.allowed_apps),
-                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                                 )
                             }
-                            TextButton(onClick = { showAppPicker = true }) {
-                                Icon(Icons.Default.Add, contentDescription = null, Modifier.size(18.dp))
+                            FilledTonalButton(
+                                onClick = { showAppPicker = true },
+                                shape = RoundedCornerShape(16.dp)
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, Modifier.size(16.dp))
                                 Spacer(Modifier.width(4.dp))
                                 Text(stringResource(R.string.add_allowed_app))
                             }
@@ -212,19 +334,20 @@ fun FocusScreen(
                             Text(
                                 text = stringResource(R.string.no_allowed_apps),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                modifier = Modifier.padding(vertical = 6.dp)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(vertical = 8.dp)
                             )
                         } else {
                             val allowedApps = installedApps.filter { config.allowedPackages.contains(it.name) }
                             FlowRow(
-                                modifier = Modifier.padding(top = 8.dp),
+                                modifier = Modifier.padding(top = 10.dp),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 allowedApps.forEach { app ->
                                     AssistChip(
                                         onClick = { vm.toggleAllowedPackage(app.name) },
+                                        shape = RoundedCornerShape(16.dp),
                                         leadingIcon = {
                                             Image(
                                                 painter = rememberDrawablePainter(app.icon),
@@ -232,7 +355,7 @@ fun FocusScreen(
                                                 modifier = Modifier.size(20.dp)
                                             )
                                         },
-                                        label = { Text(app.label) },
+                                        label = { Text(app.label, fontWeight = FontWeight.Medium) },
                                         trailingIcon = {
                                             Icon(
                                                 Icons.Default.Close,
@@ -249,22 +372,28 @@ fun FocusScreen(
 
                 Spacer(Modifier.height(16.dp))
 
-                // Friction & Guard Card
-                Card(
+                // Security & Anti-Relapse Card
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                    shape = RoundedCornerShape(28.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    tonalElevation = 1.dp
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(modifier = Modifier.padding(20.dp)) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Icon(Icons.Default.Lock, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
+                            Icon(
+                                painter = painterResource(R.drawable.lock_fill0),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(Modifier.width(12.dp))
                             Text(
-                                text = "Session Guard & Security",
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+                                text = "Security & Anti-Bypass",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                             )
                         }
 
@@ -274,6 +403,7 @@ fun FocusScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .clip(RoundedCornerShape(16.dp))
                                 .clickable { showPasswordDialog = true }
                                 .padding(vertical = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -281,19 +411,19 @@ fun FocusScreen(
                         ) {
                             Column(Modifier.weight(1f)) {
                                 Text(
-                                    stringResource(R.string.exit_password),
-                                    style = MaterialTheme.typography.bodyLarge
+                                    text = stringResource(R.string.exit_password),
+                                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
                                 )
                                 Text(
-                                    if (config.passwordHash.isNotEmpty()) "Password is set (••••)"
-                                    else "None (Tap to set protection)",
+                                    text = if (config.passwordHash.isNotEmpty()) "Protected with password"
+                                    else "None configured (Tap to add protection)",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = if (config.passwordHash.isNotEmpty()) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                    else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                             TextButton(onClick = { showPasswordDialog = true }) {
-                                Text(if (config.passwordHash.isNotEmpty()) "Change" else "Set")
+                                Text(if (config.passwordHash.isNotEmpty()) "Change" else "Configure")
                             }
                         }
 
@@ -306,11 +436,14 @@ fun FocusScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(Modifier.weight(1f)) {
-                                Text(stringResource(R.string.strict_mode), style = MaterialTheme.typography.bodyLarge)
                                 Text(
-                                    stringResource(R.string.strict_mode_desc),
+                                    text = stringResource(R.string.strict_mode),
+                                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
+                                )
+                                Text(
+                                    text = stringResource(R.string.strict_mode_desc),
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                             Switch(
@@ -328,11 +461,14 @@ fun FocusScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(Modifier.weight(1f)) {
-                                Text(stringResource(R.string.allow_notifications_focus), style = MaterialTheme.typography.bodyLarge)
                                 Text(
-                                    stringResource(R.string.allow_notifications_desc),
+                                    text = stringResource(R.string.allow_notifications_focus),
+                                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
+                                )
+                                Text(
+                                    text = stringResource(R.string.allow_notifications_desc),
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                             Switch(
@@ -345,7 +481,7 @@ fun FocusScreen(
 
                 Spacer(Modifier.height(28.dp))
 
-                // Enter Monk Mode Launch Button
+                // Expressive Hero Start Button
                 Button(
                     onClick = {
                         if (activity != null) {
@@ -354,12 +490,12 @@ fun FocusScreen(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp),
-                    shape = RoundedCornerShape(28.dp),
+                        .height(64.dp),
+                    shape = RoundedCornerShape(32.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null, Modifier.size(24.dp))
-                    Spacer(Modifier.width(8.dp))
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, Modifier.size(28.dp))
+                    Spacer(Modifier.width(10.dp))
                     Text(
                         text = stringResource(R.string.start_monk_mode),
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
@@ -372,38 +508,58 @@ fun FocusScreen(
 
         FocusState.ACTIVE -> {
             BackHandler(enabled = true) {
-                // Prevent accidental backing out
-                showExitPasswordDialog = true
+                if (config.strictMode && session.remainingSeconds > 0) {
+                    context.popToast(R.string.strict_mode_warning)
+                } else if (config.passwordHash.isNotEmpty()) {
+                    exitPasswordInput = ""
+                    exitPasswordError = null
+                    showExitPasswordDialog = true
+                } else {
+                    showConfirmEndDialog = true
+                }
             }
 
             // Fullscreen Zen Kiosk View
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.surface)
-                    .padding(24.dp),
-                contentAlignment = Alignment.Center
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = MaterialTheme.colorScheme.surface
             ) {
                 Column(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Top tag
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f))
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    // Header Tag Pill
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        modifier = Modifier.padding(top = 16.dp)
                     ) {
-                        Text("🧘 Monk Mode Active", style = MaterialTheme.typography.labelLarge)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.lock_clock_fill0),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = "Focus Session Active",
+                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
                     }
 
-                    // Center Countdown Timer
+                    // Large Zen Digital Counter Hero
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(vertical = 24.dp)
+                        modifier = Modifier.padding(vertical = 16.dp)
                     ) {
                         val remainingMins = session.remainingSeconds / 60
                         val remainingSecs = session.remainingSeconds % 60
@@ -413,26 +569,33 @@ fun FocusScreen(
 
                         Box(
                             contentAlignment = Alignment.Center,
-                            modifier = Modifier.size(240.dp)
+                            modifier = Modifier.size(260.dp)
                         ) {
                             CircularProgressIndicator(
                                 progress = { progress },
                                 modifier = Modifier.fillMaxSize(),
-                                strokeWidth = 10.dp,
+                                strokeWidth = 12.dp,
+                                strokeCap = StrokeCap.Round,
                                 color = MaterialTheme.colorScheme.primary,
-                                trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
                             )
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(
                                     text = String.format(Locale.getDefault(), "%02d:%02d", remainingMins, remainingSecs),
                                     style = MaterialTheme.typography.displayLarge.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 54.sp
-                                    )
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 62.sp,
+                                        fontFamily = FontFamily.Monospace
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
+                                Spacer(Modifier.height(4.dp))
                                 Text(
-                                    text = stringResource(R.string.focus_remaining),
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    text = stringResource(R.string.focus_remaining).uppercase(),
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 1.5.sp
+                                    ),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
@@ -440,17 +603,25 @@ fun FocusScreen(
 
                         Spacer(Modifier.height(32.dp))
 
-                        // Mindful Quote
-                        Text(
-                            text = "“${session.currentQuote}”",
-                            style = MaterialTheme.typography.bodyLarge.copy(fontStyle = FontStyle.Italic),
-                            textAlign = TextAlign.Center,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
-                            modifier = Modifier.padding(horizontal = 24.dp)
-                        )
+                        // Mindful Quote Card
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp)
+                        ) {
+                            Text(
+                                text = session.currentQuote,
+                                style = MaterialTheme.typography.bodyLarge.copy(fontStyle = FontStyle.Italic),
+                                textAlign = TextAlign.Center,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.padding(20.dp)
+                            )
+                        }
                     }
 
-                    // Bottom: Allowed Apps Launcher Dock & End Session Button
+                    // Bottom Dock: Allowed Apps & End Session
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.fillMaxWidth()
@@ -458,10 +629,10 @@ fun FocusScreen(
                         if (config.allowedPackages.isNotEmpty()) {
                             Text(
                                 text = "Allowed Apps",
-                                style = MaterialTheme.typography.labelMedium,
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            Spacer(Modifier.height(8.dp))
+                            Spacer(Modifier.height(10.dp))
                             val allowedApps = installedApps.filter { config.allowedPackages.contains(it.name) }
                             FlowRow(
                                 horizontalArrangement = Arrangement.Center,
@@ -471,24 +642,30 @@ fun FocusScreen(
                                     .padding(bottom = 20.dp)
                             ) {
                                 allowedApps.forEach { app ->
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                    Surface(
+                                        shape = RoundedCornerShape(20.dp),
+                                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
                                         modifier = Modifier
-                                            .clip(RoundedCornerShape(12.dp))
+                                            .clip(RoundedCornerShape(20.dp))
                                             .clickable { vm.launchApp(context, app.name) }
-                                            .padding(8.dp)
+                                            .padding(horizontal = 4.dp)
                                     ) {
-                                        Image(
-                                            painter = rememberDrawablePainter(app.icon),
-                                            contentDescription = app.label,
-                                            modifier = Modifier.size(48.dp)
-                                        )
-                                        Spacer(Modifier.height(4.dp))
-                                        Text(
-                                            text = app.label,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            maxLines = 1
-                                        )
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            modifier = Modifier.padding(12.dp)
+                                        ) {
+                                            Image(
+                                                painter = rememberDrawablePainter(app.icon),
+                                                contentDescription = app.label,
+                                                modifier = Modifier.size(44.dp)
+                                            )
+                                            Spacer(Modifier.height(4.dp))
+                                            Text(
+                                                text = app.label,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                maxLines = 1
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -503,17 +680,24 @@ fun FocusScreen(
                                     exitPasswordError = null
                                     showExitPasswordDialog = true
                                 } else {
-                                    if (activity != null) {
-                                        vm.endMonkMode(activity, "") { _, _ -> }
-                                    }
+                                    showConfirmEndDialog = true
                                 }
                             },
                             modifier = Modifier
-                                .fillMaxWidth(0.8f)
-                                .height(48.dp),
-                            shape = RoundedCornerShape(24.dp)
+                                .fillMaxWidth(0.85f)
+                                .height(52.dp),
+                            shape = RoundedCornerShape(26.dp)
                         ) {
-                            Text(stringResource(R.string.end_session))
+                            Icon(
+                                painter = painterResource(R.drawable.lock_reset_fill0),
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = stringResource(R.string.end_session),
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
                     }
                 }
@@ -521,55 +705,63 @@ fun FocusScreen(
         }
 
         FocusState.COMPLETED -> {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = MaterialTheme.colorScheme.surface
             ) {
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    modifier = Modifier.size(96.dp)
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            Icons.Default.Check,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(48.dp)
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.size(96.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                painter = painterResource(R.drawable.verified_fill0),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(48.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(24.dp))
+
+                    Text(
+                        text = stringResource(R.string.session_completed_title),
+                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+
+                    Text(
+                        text = stringResource(R.string.session_completed_desc),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(Modifier.height(36.dp))
+
+                    Button(
+                        onClick = { vm.resetSession() },
+                        shape = RoundedCornerShape(28.dp),
+                        modifier = Modifier
+                            .fillMaxWidth(0.6f)
+                            .height(56.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.finish),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                     }
-                }
-
-                Spacer(Modifier.height(24.dp))
-
-                Text(
-                    text = stringResource(R.string.session_completed_title),
-                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(Modifier.height(8.dp))
-
-                Text(
-                    text = stringResource(R.string.session_completed_desc),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(Modifier.height(32.dp))
-
-                Button(
-                    onClick = { vm.resetSession() },
-                    shape = RoundedCornerShape(24.dp),
-                    modifier = Modifier
-                        .fillMaxWidth(0.6f)
-                        .height(48.dp)
-                ) {
-                    Text(stringResource(R.string.finish))
                 }
             }
         }
@@ -603,7 +795,7 @@ fun FocusScreen(
                     placeholder = { Text("Search apps...") },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(16.dp),
                     singleLine = true
                 )
 
@@ -619,7 +811,7 @@ fun FocusScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(RoundedCornerShape(16.dp))
                                 .clickable { vm.toggleAllowedPackage(app.name) }
                                 .padding(vertical = 8.dp, horizontal = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -627,11 +819,11 @@ fun FocusScreen(
                             Image(
                                 painter = rememberDrawablePainter(app.icon),
                                 contentDescription = null,
-                                modifier = Modifier.size(36.dp)
+                                modifier = Modifier.size(40.dp)
                             )
-                            Spacer(Modifier.width(12.dp))
+                            Spacer(Modifier.width(14.dp))
                             Column(Modifier.weight(1f)) {
-                                Text(app.label, style = MaterialTheme.typography.bodyLarge)
+                                Text(app.label, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium))
                                 Text(
                                     app.name,
                                     style = MaterialTheme.typography.bodySmall,
@@ -649,10 +841,12 @@ fun FocusScreen(
                 Spacer(Modifier.height(16.dp))
                 Button(
                     onClick = { showAppPicker = false },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = RoundedCornerShape(26.dp)
                 ) {
-                    Text(stringResource(R.string.confirm))
+                    Text(stringResource(R.string.confirm), fontWeight = FontWeight.Bold)
                 }
                 Spacer(Modifier.height(24.dp))
             }
@@ -664,6 +858,13 @@ fun FocusScreen(
         var rawPassword by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showPasswordDialog = false },
+            icon = {
+                Icon(
+                    painter = painterResource(R.drawable.lock_fill0),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            },
             title = { Text(stringResource(R.string.set_exit_password)) },
             text = {
                 Column {
@@ -679,15 +880,19 @@ fun FocusScreen(
                         visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         singleLine = true,
+                        shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
             },
             confirmButton = {
-                Button(onClick = {
-                    vm.setPassword(rawPassword)
-                    showPasswordDialog = false
-                }) {
+                Button(
+                    onClick = {
+                        vm.setPassword(rawPassword)
+                        showPasswordDialog = false
+                    },
+                    shape = RoundedCornerShape(16.dp)
+                ) {
                     Text(stringResource(R.string.confirm))
                 }
             },
@@ -713,6 +918,13 @@ fun FocusScreen(
     if (showExitPasswordDialog) {
         AlertDialog(
             onDismissRequest = { showExitPasswordDialog = false },
+            icon = {
+                Icon(
+                    painter = painterResource(R.drawable.lock_fill0),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error
+                )
+            },
             title = { Text(stringResource(R.string.end_session)) },
             text = {
                 Column {
@@ -731,6 +943,7 @@ fun FocusScreen(
                         visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         singleLine = true,
+                        shape = RoundedCornerShape(14.dp),
                         isError = exitPasswordError != null,
                         supportingText = exitPasswordError?.let { { Text(it) } },
                         modifier = Modifier.fillMaxWidth()
@@ -738,22 +951,59 @@ fun FocusScreen(
                 }
             },
             confirmButton = {
-                Button(onClick = {
-                    if (activity != null) {
-                        vm.endMonkMode(activity, exitPasswordInput) { success, errorMsg ->
-                            if (success) {
-                                showExitPasswordDialog = false
-                            } else {
-                                exitPasswordError = errorMsg
+                Button(
+                    onClick = {
+                        if (activity != null) {
+                            vm.endMonkMode(activity, exitPasswordInput) { success, errorMsg ->
+                                if (success) {
+                                    showExitPasswordDialog = false
+                                } else {
+                                    exitPasswordError = errorMsg
+                                }
                             }
                         }
-                    }
-                }) {
+                    },
+                    shape = RoundedCornerShape(16.dp)
+                ) {
                     Text(stringResource(R.string.confirm))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showExitPasswordDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
+    // Confirm End Session Dialog (when no password is set)
+    if (showConfirmEndDialog) {
+        AlertDialog(
+            onDismissRequest = { showConfirmEndDialog = false },
+            icon = {
+                Icon(
+                    painter = painterResource(R.drawable.lock_reset_fill0),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            },
+            title = { Text(stringResource(R.string.confirm_end_session)) },
+            text = { Text(stringResource(R.string.confirm_end_session_msg)) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showConfirmEndDialog = false
+                        if (activity != null) {
+                            vm.endMonkMode(activity, "") { _, _ -> }
+                        }
+                    },
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text(stringResource(R.string.confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmEndDialog = false }) {
                     Text(stringResource(R.string.cancel))
                 }
             }

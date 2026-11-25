@@ -1,6 +1,7 @@
 package com.bintianqi.owndroid.feature.focus
 
 import android.app.Activity
+import android.app.ActivityOptions
 import android.app.admin.DevicePolicyManager
 import android.content.Context
 import android.content.Intent
@@ -74,6 +75,16 @@ class FocusViewModel(
         _configState.value = repo.config
     }
 
+    fun setUseKioskLock(enabled: Boolean) {
+        repo.update { it.copy(useKioskLock = enabled) }
+        _configState.value = repo.config
+    }
+
+    fun setSuspendOtherApps(enabled: Boolean) {
+        repo.update { it.copy(suspendOtherApps = enabled) }
+        _configState.value = repo.config
+    }
+
     fun setAllowNotifications(allow: Boolean) {
         repo.update { it.copy(allowNotifications = allow) }
         _configState.value = repo.config
@@ -93,29 +104,51 @@ class FocusViewModel(
     fun startMonkMode(activity: Activity) {
         val config = repo.config
         val totalSecs = config.durationMinutes * 60L
+        val now = System.currentTimeMillis()
+        val endTime = now + (totalSecs * 1000L)
         val quote = MINDFUL_QUOTES.random()
 
         ph.safeDpmCall {
             try {
-                val packagesToAllow = (config.allowedPackages + application.packageName).distinct().toTypedArray()
-                dpm.setLockTaskPackages(dar, packagesToAllow)
+                val allowedPackages = (config.allowedPackages + application.packageName).distinct()
+                var suspendedList = emptyList<String>()
 
-                if (Build.VERSION.SDK_INT >= 28) {
-                    val features = if (config.allowNotifications) {
-                        DevicePolicyManager.LOCK_TASK_FEATURE_NOTIFICATIONS or DevicePolicyManager.LOCK_TASK_FEATURE_HOME
-                    } else {
-                        DevicePolicyManager.LOCK_TASK_FEATURE_NONE
+                // 1. Suspend non-allowed apps if option is enabled
+                if (config.suspendOtherApps && Build.VERSION.SDK_INT >= 24) {
+                    val pm = application.packageManager
+                    val toSuspend = _installedApps.value.map { it.name }.filter { pkg ->
+                        !allowedPackages.contains(pkg) && !isCriticalPackage(pkg)
                     }
-                    dpm.setLockTaskFeatures(dar, features)
+                    if (toSuspend.isNotEmpty()) {
+                        dpm.setPackagesSuspended(dar, toSuspend.toTypedArray(), true)
+                        suspendedList = toSuspend
+                    }
                 }
 
-                activity.startLockTask()
+                // 2. LockTask Kiosk mode if option is enabled
+                if (config.useKioskLock) {
+                    dpm.setLockTaskPackages(dar, allowedPackages.toTypedArray())
+
+                    if (Build.VERSION.SDK_INT >= 28) {
+                        var features = DevicePolicyManager.LOCK_TASK_FEATURE_HOME or
+                                DevicePolicyManager.LOCK_TASK_FEATURE_OVERVIEW
+                        if (config.allowNotifications) {
+                            features = features or DevicePolicyManager.LOCK_TASK_FEATURE_NOTIFICATIONS
+                        }
+                        dpm.setLockTaskFeatures(dar, features)
+                    }
+
+                    activity.startLockTask()
+                }
 
                 _sessionState.value = FocusSessionState(
                     state = FocusState.ACTIVE,
+                    startTimeEpochMs = now,
+                    endTimeEpochMs = endTime,
                     totalSeconds = totalSecs,
                     remainingSeconds = totalSecs,
-                    currentQuote = quote
+                    currentQuote = quote,
+                    suspendedPackages = suspendedList
                 )
 
                 startTimer(activity)
@@ -127,17 +160,32 @@ class FocusViewModel(
         }
     }
 
+    private fun isCriticalPackage(packageName: String): Boolean {
+        return packageName.contains("telecom") ||
+                packageName.contains("dialer") ||
+                packageName.contains("emergency") ||
+                packageName.contains("systemui") ||
+                packageName.contains("android.settings") ||
+                packageName == application.packageName
+    }
+
     private fun startTimer(activity: Activity) {
         timerJob?.cancel()
         timerJob = viewModelScope.launch(Dispatchers.Main) {
-            var remaining = _sessionState.value.remainingSeconds
-            while (remaining > 0) {
-                delay(1000L)
-                remaining -= 1
+            val endTime = _sessionState.value.endTimeEpochMs
+            while (true) {
+                val currentTime = System.currentTimeMillis()
+                val remaining = ((endTime - currentTime + 999L) / 1000L).coerceAtLeast(0L)
                 _sessionState.value = _sessionState.value.copy(remainingSeconds = remaining)
+
+                if (remaining <= 0L) {
+                    break
+                }
+                delay(1000L)
             }
-            // Timer expired!
-            stopLockTaskSafely(activity)
+
+            // Session completed naturally!
+            finishSessionCleanup(activity)
             _sessionState.value = _sessionState.value.copy(
                 state = FocusState.COMPLETED,
                 remainingSeconds = 0L
@@ -167,21 +215,29 @@ class FocusViewModel(
         }
 
         timerJob?.cancel()
-        stopLockTaskSafely(activity)
+        finishSessionCleanup(activity)
         _sessionState.value = FocusSessionState(state = FocusState.IDLE)
         onResult(true, null)
     }
 
-    fun resetSession() {
-        _sessionState.value = FocusSessionState(state = FocusState.IDLE)
+    private fun finishSessionCleanup(activity: Activity) {
+        val suspended = _sessionState.value.suspendedPackages
+        ph.safeDpmCall {
+            try {
+                if (suspended.isNotEmpty() && Build.VERSION.SDK_INT >= 24) {
+                    dpm.setPackagesSuspended(dar, suspended.toTypedArray(), false)
+                }
+                if (_configState.value.useKioskLock) {
+                    activity.stopLockTask()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
-    private fun stopLockTaskSafely(activity: Activity) {
-        try {
-            activity.stopLockTask()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+    fun resetSession() {
+        _sessionState.value = FocusSessionState(state = FocusState.IDLE)
     }
 
     fun launchApp(context: Context, packageName: String) {
@@ -190,7 +246,12 @@ class FocusViewModel(
             val intent = pm.getLaunchIntentForPackage(packageName)
             if (intent != null) {
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(intent)
+                if (Build.VERSION.SDK_INT >= 28 && _configState.value.useKioskLock) {
+                    val options = ActivityOptions.makeBasic().setLockTaskEnabled(true)
+                    context.startActivity(intent, options.toBundle())
+                } else {
+                    context.startActivity(intent)
+                }
             } else {
                 toastChannel.sendText(R.string.not_exist)
             }
