@@ -56,7 +56,7 @@ import com.hotaro.meowdroid.R
 import com.hotaro.meowdroid.feature.focus.FocusScreen
 import com.hotaro.meowdroid.feature.focus.FocusState
 import com.hotaro.meowdroid.feature.focus.FocusViewModel
-import com.hotaro.meowdroid.feature.time_blocker.TimeBlockerCalendarScreen
+import com.hotaro.meowdroid.feature.time_blocker.TimeBlockerScreen
 import com.hotaro.meowdroid.feature.time_blocker.TimeBlockerViewModel
 import com.hotaro.meowdroid.ui.component.FloatingNavItem
 import com.hotaro.meowdroid.ui.component.TomatoFloatingNavBar
@@ -104,39 +104,13 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            if (!isFocusActive && selectedTab != 1) {
+            if (!isFocusActive) {
                 TopAppBar(
                     title = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                stringResource(R.string.app_name),
-                                style = typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Card(
-                                shape = RoundedCornerShape(8.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = if (privilege.device)
-                                        MaterialTheme.colorScheme.primaryContainer
-                                    else
-                                        MaterialTheme.colorScheme.errorContainer
-                                )
-                            ) {
-                                Text(
-                                    text = if (privilege.device) "Device Owner" else if (privilege.profile) "Profile Owner" else "Unmanaged",
-                                    style = typography.labelSmall,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
-                    },
-                    actions = {
-                        IconButton({ onNavigate(Destination.WorkingModes(true)) }) {
-                            Icon(painterResource(R.drawable.security_fill0), contentDescription = "Working Modes")
-                        }
-                        IconButton({ onNavigate(Destination.Settings) }) {
-                            Icon(painterResource(R.drawable.settings), contentDescription = "Settings")
-                        }
+                        Text(
+                            text = stringResource(R.string.app_name),
+                            style = typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                        )
                     }
                 )
             }
@@ -164,8 +138,9 @@ fun HomeScreen(
                 )
             }
             1 -> {
-                TimeBlockerCalendarScreen(
+                TimeBlockerScreen(
                     vm = blockerVm,
+                    navigate = onNavigate,
                     modifier = Modifier.padding(paddingValues)
                 )
             }
@@ -178,6 +153,7 @@ fun HomeScreen(
             }
             3 -> {
                 SettingsTab(
+                    privilege = privilege,
                     modifier = Modifier.padding(paddingValues),
                     onNavigate = onNavigate
                 )
@@ -309,6 +285,7 @@ private fun ToolsTab(
 
 @Composable
 private fun SettingsTab(
+    privilege: PrivilegeStatus,
     modifier: Modifier = Modifier,
     onNavigate: (Destination) -> Unit
 ) {
@@ -325,6 +302,36 @@ private fun SettingsTab(
             color = MaterialTheme.colorScheme.primary
         )
 
+        // Device Owner Card
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = { onNavigate(Destination.WorkingModes(true)) }
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    painterResource(R.drawable.security_fill0),
+                    contentDescription = null,
+                    tint = if (privilege.device) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(28.dp)
+                )
+                Spacer(Modifier.width(16.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Device Owner", style = typography.titleSmall.copy(fontWeight = FontWeight.SemiBold))
+                    Text(
+                        text = if (privilege.device) "Active (Device Owner)" else if (privilege.profile) "Active (Profile Owner)" else "Unmanaged / Inactive",
+                        style = typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        // Extra Settings Card
         ElevatedCard(
             modifier = Modifier.fillMaxWidth(),
             onClick = { onNavigate(Destination.Settings) }
@@ -343,12 +350,13 @@ private fun SettingsTab(
                 )
                 Spacer(Modifier.width(16.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("App Preferences", style = typography.titleSmall.copy(fontWeight = FontWeight.SemiBold))
+                    Text("Extra Settings", style = typography.titleSmall.copy(fontWeight = FontWeight.SemiBold))
                     Text("Theme, security, logs and system settings", style = typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
 
+        // About Card
         ElevatedCard(
             modifier = Modifier.fillMaxWidth(),
             onClick = { onNavigate(Destination.About) }
