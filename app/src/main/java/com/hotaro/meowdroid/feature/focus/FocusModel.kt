@@ -7,10 +7,24 @@ enum class FocusExitKeyType {
 }
 
 @Serializable
+data class AppBag(
+    val id: String,
+    val name: String,
+    val packages: List<String> = emptyList(),
+    val iconName: String = "backpack"
+)
+
+@Serializable
 data class FocusConfig(
     val durationMinutes: Int = 25,
     val allowedPackages: List<String> = emptyList(),
-    val blockedPackages: List<String> = emptyList(), // Apps selected to be blocked/suspended during focus
+    val blockedPackages: List<String> = emptyList(), // Apps selected individually to be blocked
+    val appBags: List<AppBag> = listOf(
+        AppBag("socials", "Social Media", emptyList(), "socials"),
+        AppBag("study", "Study / Work", emptyList(), "study"),
+        AppBag("entertainment", "Entertainment", emptyList(), "entertainment")
+    ),
+    val activeBlockedBags: List<String> = emptyList(), // Bag IDs that are blocked in focus
     val passwordHash: String = "",
     val qrCodeKey: String = "", // Emergency QR code key string for unlock
     val exitKeyType: FocusExitKeyType = FocusExitKeyType.NONE,

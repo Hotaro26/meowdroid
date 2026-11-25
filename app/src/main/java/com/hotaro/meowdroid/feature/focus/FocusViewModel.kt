@@ -98,6 +98,50 @@ class FocusViewModel(
         _configState.value = repo.config
     }
 
+    fun toggleBagBlocked(bagId: String) {
+        val current = repo.config.activeBlockedBags.toMutableList()
+        if (current.contains(bagId)) {
+            current.remove(bagId)
+        } else {
+            current.add(bagId)
+        }
+        repo.update { it.copy(activeBlockedBags = current) }
+        _configState.value = repo.config
+    }
+
+    fun addOrUpdateBag(bag: AppBag) {
+        val bags = repo.config.appBags.toMutableList()
+        val index = bags.indexOfFirst { it.id == bag.id }
+        if (index != -1) {
+            bags[index] = bag
+        } else {
+            bags.add(bag)
+        }
+        repo.update { it.copy(appBags = bags) }
+        _configState.value = repo.config
+    }
+
+    fun deleteBag(bagId: String) {
+        val bags = repo.config.appBags.filter { it.id != bagId }
+        val active = repo.config.activeBlockedBags.filter { it != bagId }
+        repo.update { it.copy(appBags = bags, activeBlockedBags = active) }
+        _configState.value = repo.config
+    }
+
+    fun togglePackageInBag(bagId: String, packageName: String) {
+        val bags = repo.config.appBags.toMutableList()
+        val index = bags.indexOfFirst { it.id == bagId }
+        if (index != -1) {
+            val bag = bags[index]
+            val pkgs = bag.packages.toMutableList()
+            if (pkgs.contains(packageName)) pkgs.remove(packageName)
+            else pkgs.add(packageName)
+            bags[index] = bag.copy(packages = pkgs)
+            repo.update { it.copy(appBags = bags) }
+            _configState.value = repo.config
+        }
+    }
+
     fun setStrictMode(enabled: Boolean) {
         repo.update { it.copy(strictMode = enabled) }
         _configState.value = repo.config
@@ -141,10 +185,17 @@ class FocusViewModel(
                 val allowedPackages = (config.allowedPackages + application.packageName).distinct()
                 var suspendedList = emptyList<String>()
 
+                // Calculate all packages that need to be suspended
+                // (individual blocked packages + packages from active blocked bags)
+                val bagBlockedPackages = config.appBags
+                    .filter { config.activeBlockedBags.contains(it.id) }
+                    .flatMap { it.packages }
+                val allBlockedPackages = (config.blockedPackages + bagBlockedPackages).distinct()
+
                 // Suspend blocked apps (or non-allowed apps)
                 if (Build.VERSION.SDK_INT >= 24) {
-                    val toSuspend = if (config.blockedPackages.isNotEmpty()) {
-                        config.blockedPackages.filter { !isCriticalPackage(it) }
+                    val toSuspend = if (allBlockedPackages.isNotEmpty()) {
+                        allBlockedPackages.filter { !isCriticalPackage(it) }
                     } else if (config.suspendOtherApps) {
                         _installedApps.value.map { it.name }.filter { pkg ->
                             !allowedPackages.contains(pkg) && !isCriticalPackage(pkg)
