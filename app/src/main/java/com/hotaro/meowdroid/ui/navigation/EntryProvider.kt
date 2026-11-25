@@ -37,6 +37,8 @@ import com.hotaro.meowdroid.feature.applications.PermissionManagerScreen
 import com.hotaro.meowdroid.feature.applications.PermittedAsAndImPackagesScreen
 import com.hotaro.meowdroid.feature.applications.SetDefaultDialerScreen
 import com.hotaro.meowdroid.feature.applications.UninstallAppScreen
+import com.hotaro.meowdroid.feature.focus.FocusViewModel
+import com.hotaro.meowdroid.feature.focus.ZenSettingsScreen
 import com.hotaro.meowdroid.feature.network.AddApnSettingScreen
 import com.hotaro.meowdroid.feature.network.AddPreferentialNetworkServiceConfigScreen
 import com.hotaro.meowdroid.feature.network.AlwaysOnVpnPackageScreen
@@ -761,6 +763,12 @@ fun myEntryProvider(
         metadata = navParentKey<Destination.Password>()
     ) {
         RequiredPasswordQualityScreen(viewModel(), ::navigateUp)
+    }
+
+    myEntry<Destination.ZenSettings>(
+        metadata = navParentKey<Destination.Home>()
+    ) {
+        ZenSettingsScreen(viewModel(factory = container.viewModelFactory), ::navigateUp)
     }
 
     myEntry<Destination.TimeBlocker> {

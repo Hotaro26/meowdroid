@@ -134,6 +134,7 @@ fun HomeScreen(
             0 -> {
                 FocusScreen(
                     vm = focusVm,
+                    onNavigateToZen = { onNavigate(Destination.ZenSettings) },
                     modifier = Modifier.padding(paddingValues)
                 )
             }

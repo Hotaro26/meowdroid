@@ -2,11 +2,18 @@ package com.hotaro.meowdroid.feature.focus
 
 import kotlinx.serialization.Serializable
 
+enum class FocusExitKeyType {
+    NONE, PASSWORD, QR_CODE
+}
+
 @Serializable
 data class FocusConfig(
     val durationMinutes: Int = 25,
     val allowedPackages: List<String> = emptyList(),
+    val blockedPackages: List<String> = emptyList(), // Apps selected to be blocked/suspended during focus
     val passwordHash: String = "",
+    val qrCodeKey: String = "", // Emergency QR code key string for unlock
+    val exitKeyType: FocusExitKeyType = FocusExitKeyType.NONE,
     val strictMode: Boolean = false,
     val useKioskLock: Boolean = true,
     val suspendOtherApps: Boolean = true,

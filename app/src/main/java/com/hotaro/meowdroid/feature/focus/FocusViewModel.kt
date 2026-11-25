@@ -23,6 +23,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 class FocusViewModel(
     val application: MyApplication,
@@ -70,6 +71,33 @@ class FocusViewModel(
         _configState.value = repo.config
     }
 
+    fun setQrCodeKey(key: String) {
+        repo.update { it.copy(qrCodeKey = key) }
+        _configState.value = repo.config
+    }
+
+    fun generateNewQrCodeKey(): String {
+        val newKey = "MEOW-" + UUID.randomUUID().toString().take(8).uppercase()
+        setQrCodeKey(newKey)
+        return newKey
+    }
+
+    fun setExitKeyType(type: FocusExitKeyType) {
+        repo.update { it.copy(exitKeyType = type) }
+        _configState.value = repo.config
+    }
+
+    fun toggleBlockedPackage(packageName: String) {
+        val current = repo.config.blockedPackages.toMutableList()
+        if (current.contains(packageName)) {
+            current.remove(packageName)
+        } else {
+            current.add(packageName)
+        }
+        repo.update { it.copy(blockedPackages = current) }
+        _configState.value = repo.config
+    }
+
     fun setStrictMode(enabled: Boolean) {
         repo.update { it.copy(strictMode = enabled) }
         _configState.value = repo.config
@@ -113,19 +141,25 @@ class FocusViewModel(
                 val allowedPackages = (config.allowedPackages + application.packageName).distinct()
                 var suspendedList = emptyList<String>()
 
-                // 1. Suspend non-allowed apps if option is enabled
-                if (config.suspendOtherApps && Build.VERSION.SDK_INT >= 24) {
-                    val pm = application.packageManager
-                    val toSuspend = _installedApps.value.map { it.name }.filter { pkg ->
-                        !allowedPackages.contains(pkg) && !isCriticalPackage(pkg)
+                // Suspend blocked apps (or non-allowed apps)
+                if (Build.VERSION.SDK_INT >= 24) {
+                    val toSuspend = if (config.blockedPackages.isNotEmpty()) {
+                        config.blockedPackages.filter { !isCriticalPackage(it) }
+                    } else if (config.suspendOtherApps) {
+                        _installedApps.value.map { it.name }.filter { pkg ->
+                            !allowedPackages.contains(pkg) && !isCriticalPackage(pkg)
+                        }
+                    } else {
+                        emptyList()
                     }
+
                     if (toSuspend.isNotEmpty()) {
                         dpm.setPackagesSuspended(dar, toSuspend.toTypedArray(), true)
                         suspendedList = toSuspend
                     }
                 }
 
-                // 2. LockTask Kiosk mode if option is enabled
+                // LockTask Kiosk mode if option is enabled
                 if (config.useKioskLock) {
                     dpm.setLockTaskPackages(dar, allowedPackages.toTypedArray())
 
@@ -152,112 +186,124 @@ class FocusViewModel(
                 )
 
                 startTimer(activity)
-                toastChannel.sendText(R.string.start_monk_mode)
+                toastChannel.sendText("Focus mode started")
             } catch (e: Exception) {
                 e.printStackTrace()
-                toastChannel.sendText(R.string.failed)
+                toastChannel.sendText("Failed to start focus mode")
             }
         }
-    }
-
-    private fun isCriticalPackage(packageName: String): Boolean {
-        return packageName.contains("telecom") ||
-                packageName.contains("dialer") ||
-                packageName.contains("emergency") ||
-                packageName.contains("systemui") ||
-                packageName.contains("android.settings") ||
-                packageName == application.packageName
     }
 
     private fun startTimer(activity: Activity) {
         timerJob?.cancel()
-        timerJob = viewModelScope.launch(Dispatchers.Main) {
-            val endTime = _sessionState.value.endTimeEpochMs
+        timerJob = viewModelScope.launch {
             while (true) {
-                val currentTime = System.currentTimeMillis()
-                val remaining = ((endTime - currentTime + 999L) / 1000L).coerceAtLeast(0L)
-                _sessionState.value = _sessionState.value.copy(remainingSeconds = remaining)
+                delay(1000)
+                val currentSession = _sessionState.value
+                if (currentSession.state != FocusState.ACTIVE) break
 
-                if (remaining <= 0L) {
+                val now = System.currentTimeMillis()
+                val remainingMs = currentSession.endTimeEpochMs - now
+                val remainingSec = (remainingMs / 1000).coerceAtLeast(0)
+
+                _sessionState.value = currentSession.copy(remainingSeconds = remainingSec)
+
+                if (remainingSec <= 0) {
+                    endMonkMode(activity, force = true)
                     break
                 }
-                delay(1000L)
             }
-
-            // Session completed naturally!
-            finishSessionCleanup(activity)
-            _sessionState.value = _sessionState.value.copy(
-                state = FocusState.COMPLETED,
-                remainingSeconds = 0L
-            )
-            toastChannel.sendText(R.string.session_completed_title)
         }
     }
 
-    fun endMonkMode(
-        activity: Activity,
-        enteredPassword: String,
-        onResult: (Boolean, String?) -> Unit
-    ) {
+    fun endMonkMode(activity: Activity, force: Boolean = false, passwordAttempt: String? = null): Boolean {
         val config = repo.config
-        val currentSession = _sessionState.value
+        val session = _sessionState.value
 
-        if (config.strictMode && currentSession.remainingSeconds > 0) {
-            onResult(false, application.getString(R.string.strict_mode_warning))
-            return
-        }
+        if (!force && session.remainingSeconds > 0) {
+            if (config.strictMode) {
+                toastChannel.sendText("Strict mode active: Cannot end focus early")
+                return false
+            }
 
-        if (config.passwordHash.isNotEmpty()) {
-            if (enteredPassword.hash() != config.passwordHash) {
-                onResult(false, application.getString(R.string.wrong_password))
-                return
+            when (config.exitKeyType) {
+                FocusExitKeyType.PASSWORD -> {
+                    if (config.passwordHash.isNotBlank()) {
+                        if (passwordAttempt == null || passwordAttempt.hash() != config.passwordHash) {
+                            toastChannel.sendText("Incorrect password")
+                            return false
+                        }
+                    }
+                }
+                FocusExitKeyType.QR_CODE -> {
+                    if (config.qrCodeKey.isNotBlank()) {
+                        if (passwordAttempt != config.qrCodeKey) {
+                            toastChannel.sendText("Incorrect QR code key")
+                            return false
+                        }
+                    }
+                }
+                FocusExitKeyType.NONE -> {
+                    // No key required
+                }
             }
         }
 
         timerJob?.cancel()
-        finishSessionCleanup(activity)
-        _sessionState.value = FocusSessionState(state = FocusState.IDLE)
-        onResult(true, null)
-    }
+        timerJob = null
 
-    private fun finishSessionCleanup(activity: Activity) {
-        val suspended = _sessionState.value.suspendedPackages
         ph.safeDpmCall {
             try {
-                if (suspended.isNotEmpty() && Build.VERSION.SDK_INT >= 24) {
-                    dpm.setPackagesSuspended(dar, suspended.toTypedArray(), false)
-                }
-                if (_configState.value.useKioskLock) {
+                if (config.useKioskLock) {
                     activity.stopLockTask()
+                }
+
+                if (session.suspendedPackages.isNotEmpty() && Build.VERSION.SDK_INT >= 24) {
+                    dpm.setPackagesSuspended(dar, session.suspendedPackages.toTypedArray(), false)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
-    }
 
-    fun resetSession() {
         _sessionState.value = FocusSessionState(state = FocusState.IDLE)
+        toastChannel.sendText("Focus session completed")
+        return true
     }
 
-    fun launchApp(context: Context, packageName: String) {
+    fun launchAllowedApp(context: Context, packageName: String) {
         try {
             val pm = context.packageManager
             val intent = pm.getLaunchIntentForPackage(packageName)
             if (intent != null) {
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                if (Build.VERSION.SDK_INT >= 28 && _configState.value.useKioskLock) {
-                    val options = ActivityOptions.makeBasic().setLockTaskEnabled(true)
-                    context.startActivity(intent, options.toBundle())
-                } else {
-                    context.startActivity(intent)
+                val options = ActivityOptions.makeBasic()
+                if (Build.VERSION.SDK_INT >= 28) {
+                    options.setLockTaskEnabled(true)
                 }
-            } else {
-                toastChannel.sendText(R.string.not_exist)
+                context.startActivity(intent, options.toBundle())
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            toastChannel.sendText(R.string.failed)
         }
+    }
+
+    private fun isCriticalPackage(packageName: String): Boolean {
+        val critical = listOf(
+            "com.android.phone",
+            "com.android.server.telecom",
+            "com.google.android.dialer",
+            "com.android.dialer",
+            "com.android.emergency",
+            "com.google.android.emergency",
+            "com.android.settings",
+            "com.android.systemui"
+        )
+        return critical.contains(packageName)
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        timerJob?.cancel()
     }
 }
